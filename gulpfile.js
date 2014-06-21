@@ -15,6 +15,7 @@
  gulp-cache
  gulp-inject
  gulp-strip-debug
+ install gulp-wait
 
  --save-dev
 
@@ -27,7 +28,7 @@
  https://gist.github.com/markgoodyear/8497946#file-gruntfile-js
  https://gist.github.com/markgoodyear/8497946#file-gulpfile-js
 
-*/
+ */
 
 var gulp = require('gulp'),
 //    sass = require('gulp-ruby-sass'),
@@ -43,11 +44,14 @@ var gulp = require('gulp'),
 //    cache = require('gulp-cache'),
 //    livereload = require('gulp-livereload'),
     minifyHTML = require('gulp-minify-html'),
-    stripDebug = require('gulp-strip-debug');
-    inject = require("gulp-inject");
+    stripDebug = require('gulp-strip-debug'),
+    inject = require("gulp-inject"),
+    wait = require('gulp-wait');
 
 
 var scripts = [
+    './views/js/lib/src/jquery.v2.1.1.js',
+    './views/js/lib/src/angular.v1.2.18.js',
     './views/js/lib/src/*.js',
     './views/js/app/**/*.srv.js',
     './views/js/app/**/*.drv.js',
@@ -98,7 +102,7 @@ gulp.task('minscripts',function(){
 // must in html fro Scripts     <!-- inject:js --><!-- endinject -->
 // must in html fro Css         <!-- inject:css --><!-- endinject -->
 
-gulp.task('inject_css_js_to_html', function() {
+gulp.task('inject_developer', function() {
 
     var options = {
         addRootSlash:false,
@@ -123,6 +127,35 @@ gulp.task('inject_css_js_to_html', function() {
 
     gulp.src('index.html')
         .pipe(inject(gulp.src(resources,{read: false}),options)) // Not necessary to read the files (will speed up things), we're only after their paths
+        .pipe(gulp.dest("./"));
+});
+
+gulp.task('inject_production', function() {
+
+    var options = {
+        addRootSlash:false,
+        transform: function (filepath, file, i, length) {
+            var tag,
+                max,min;
+
+            min=1111; max=9999;
+
+            if(filepath.indexOf('css') != -1){
+                tag = "<link rel='stylesheet' href='<filename>'>";
+            }
+            if(filepath.indexOf('js') != -1){
+                tag = "<script src='<filename>'></script>";
+            }
+
+            return tag.replace("<filename>",filepath+'?v='+(Math.floor(Math.random() * (max - min + 1)) + min));
+        }
+    };
+
+    var resources = scripts.concat(styles);
+
+    gulp.src('index.html')
+        .pipe(wait(6000))
+        .pipe(inject(gulp.src(RESOURCE_TO_CLEAN,{read: false}),options)) // Not necessary to read the files (will speed up things), we're only after their paths
         .pipe(gulp.dest("./"));
 });
 
@@ -179,11 +212,15 @@ gulp.task('images', function() {
         .pipe(notify({ message: 'Images task complete' }));
 });
 
-gulp.task('developer', ['inject_css_js_to_html'], function() {
+gulp.task('developer', ['clean'], function() {
+    gulp.start('inject_developer');
 });
 
 gulp.task('production', ['clean'], function() {
-    gulp.start('minify_css','minscripts','inject_css_js_to_html');
+    gulp.start('minify_css','minscripts','inject_production');
+
+    // run --inject_production-- after again
+
 });
 
 
